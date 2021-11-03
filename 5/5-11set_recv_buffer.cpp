@@ -30,6 +30,7 @@ int main( int argc, char* argv[] )
     assert( sock >= 0 );
     int recvbuf = atoi( argv[3] );
     int len = sizeof( recvbuf );
+    //先设置TCP接收缓冲区的大小，然后立即读取它
     setsockopt( sock, SOL_SOCKET, SO_RCVBUF, &recvbuf, sizeof( recvbuf ) );
     getsockopt( sock, SOL_SOCKET, SO_RCVBUF, &recvbuf, ( socklen_t* )&len );
     printf( "the receive buffer size after settting is %d\n", recvbuf );
@@ -42,6 +43,7 @@ int main( int argc, char* argv[] )
 
     struct sockaddr_in client;
     socklen_t client_addrlength = sizeof( client );
+    //accept从listen消息队列中接受连接，并生成新的socket用于和客户端通信
     int connfd = accept( sock, ( struct sockaddr* )&client, &client_addrlength );
     if ( connfd < 0 )
     {
@@ -51,6 +53,7 @@ int main( int argc, char* argv[] )
     {
         char buffer[ BUFFER_SIZE ];
         memset( buffer, '\0', BUFFER_SIZE );
+        //循环读取connfd上的数据到buffer中
         while( recv( connfd, buffer, BUFFER_SIZE-1, 0 ) > 0 ){}
         close( connfd );
     }

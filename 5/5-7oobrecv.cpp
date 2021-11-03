@@ -37,6 +37,7 @@ int main( int argc, char* argv[] )
 
     struct sockaddr_in client;
     socklen_t client_addrlength = sizeof( client );
+    //accept从listen消息队列中接受连接
     int connfd = accept( sock, ( struct sockaddr* )&client, &client_addrlength );
     if ( connfd < 0 )
     {
@@ -45,8 +46,9 @@ int main( int argc, char* argv[] )
     else
     {
         char buffer[ BUF_SIZE ];
-
+        //memset为新申请的内存做初始化工作
         memset( buffer, '\0', BUF_SIZE );
+        //recv读取connfd上的数据，buf和len分别指定读缓冲区的位置和大小
         ret = recv( connfd, buffer, BUF_SIZE-1, 0 );
         printf( "got %d bytes of normal data '%s'\n", ret, buffer );
 
@@ -58,9 +60,13 @@ int main( int argc, char* argv[] )
         ret = recv( connfd, buffer, BUF_SIZE-1, 0 );
         printf( "got %d bytes of normal data '%s'\n", ret, buffer );
 
+        memset( buffer, '\0', BUF_SIZE );
+        ret = recv( connfd, buffer, BUF_SIZE-1, 0 );
+        printf( "got %d bytes of normal data '%s'\n", ret, buffer );
+        //关闭accept连接
         close( connfd );
     }
-
+    //关闭socket连接
     close( sock );
     return 0;
 }

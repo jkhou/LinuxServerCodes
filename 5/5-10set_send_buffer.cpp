@@ -29,6 +29,7 @@ int main( int argc, char* argv[] )
 
     int sendbuf = atoi( argv[3] );
     int len = sizeof( sendbuf );
+    //先设置TCP发送缓冲区的大小，然后立即读取它
     setsockopt( sock, SOL_SOCKET, SO_SNDBUF, &sendbuf, sizeof( sendbuf ) );
     getsockopt( sock, SOL_SOCKET, SO_SNDBUF, &sendbuf, ( socklen_t* )&len );
     printf( "the tcp send buffer size after setting is %d\n", sendbuf );
@@ -36,7 +37,9 @@ int main( int argc, char* argv[] )
     if ( connect( sock, ( struct sockaddr* )&server_address, sizeof( server_address ) ) != -1 )
     {
         char buffer[ BUFFER_SIZE ];
+        //为新申请到的内存做初始化工作
         memset( buffer, 'a', BUFFER_SIZE );
+        //调用send往sock中写入数据
         send( sock, buffer, BUFFER_SIZE, 0 );
     }
 

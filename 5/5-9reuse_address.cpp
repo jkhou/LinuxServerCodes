@@ -21,6 +21,7 @@ int main( int argc, char* argv[] )
     int sock = socket( PF_INET, SOCK_STREAM, 0 );
     assert( sock >= 0 );
     int reuse = 1;
+    //SO_REUSEADDR强制重用处于TIME_WAIT状态的连接所绑定的socket地址
     setsockopt( sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof( reuse ) );
 
     struct sockaddr_in address;
