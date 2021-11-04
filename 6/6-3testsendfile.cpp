@@ -22,10 +22,12 @@ int main( int argc, char* argv[] )
     const char* ip = argv[1];
     int port = atoi( argv[2] );
     const char* file_name = argv[3];
-
+    
+    //打开文件，返回文件描述符，以只读的方式打开
     int filefd = open( file_name, O_RDONLY );
     assert( filefd > 0 );
     struct stat stat_buf;
+    //将参数filefd所指的文件状态复制到stat_buf所指的结构中
     fstat( filefd, &stat_buf );
 
     struct sockaddr_in address;
@@ -52,6 +54,7 @@ int main( int argc, char* argv[] )
     }
     else
     {
+        //将文件描述符filefd中的参数写入到connfd中，NULL表示使用读入文件流默认的起始位置开始读
         sendfile( connfd, filefd, NULL, stat_buf.st_size );
         close( connfd );
     }

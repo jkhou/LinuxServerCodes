@@ -42,9 +42,13 @@ int main( int argc, char* argv[] )
     }
     else
     {
+        //关闭标准输出文件描述符STDOUT_FILENO，其值为1
         close( STDOUT_FILENO );
-        dup( connfd );
-        printf( "abcd\n" );
+        //复制socket文件描述符connfd，dup返回系统中最小的可用文件描述符，即STDOUT_FILENO
+        int temp = dup( connfd );
+        for(int i = 0; i < 10; i ++) {
+            printf( "abcd\n" );
+        }
         close( connfd );
     }
 

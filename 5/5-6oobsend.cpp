@@ -16,6 +16,8 @@ int main( int argc, char* argv[] )
     }
     const char* ip = argv[1];
     int port = atoi( argv[2] );
+    char buf[BUFSIZ];
+    int n;
 
     struct sockaddr_in server_address;
     bzero( &server_address, sizeof( server_address ) );
@@ -33,6 +35,14 @@ int main( int argc, char* argv[] )
     else
     {
         printf( "send oob data out\n" );
+        while(1) {
+            printf( "send data before\n" );
+            fgets(buf, sizeof(buf), stdin);
+            write(sockfd, buf, strlen(buf));            
+            n = read(sockfd, buf, sizeof(buf));
+            write(STDOUT_FILENO, buf, n);
+            printf( "send data later\n" );
+        }
         const char* oob_data = "abc";
         const char* normal_data = "123";
         //send往sockfd中写入数据，buf和len分别指明写缓冲区的位置和大小
@@ -43,6 +53,7 @@ int main( int argc, char* argv[] )
         send( sockfd, normal_data, strlen( normal_data ), 0 );
     }
 
+    sleep(5);
     close( sockfd );
     return 0;
 }

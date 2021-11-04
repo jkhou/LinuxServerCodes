@@ -43,13 +43,20 @@ int main( int argc, char* argv[] )
     }
     else
     {
-        int pipefd[2];
-        assert( ret != -1 );
-        ret = pipe( pipefd );
-        ret = splice( connfd, NULL, pipefd[1], NULL, 32768, SPLICE_F_MORE | SPLICE_F_MOVE ); 
-        assert( ret != -1 );
-        ret = splice( pipefd[0], NULL, connfd, NULL, 32768, SPLICE_F_MORE | SPLICE_F_MOVE );
-        assert( ret != -1 );
+        while(1){
+            //splice实现了一个零拷贝的回射服务器，将客户端发送的数据原样返回给客户端
+            int pipefd[2];
+            assert( ret != -1 );
+            //创建管道
+            ret = pipe( pipefd );
+            //将connfd上流入的客户端数据定向到管道pipefd中
+            ret = splice( connfd, NULL, pipefd[1], NULL, 32768, SPLICE_F_MORE | SPLICE_F_MOVE ); 
+            assert( ret != -1 );
+            //将管道的输出定向到connfd客户连接文件描述符
+            ret = splice( pipefd[0], NULL, connfd, NULL, 32768, SPLICE_F_MORE | SPLICE_F_MOVE );
+            assert( ret != -1 );
+            printf("the data has been writend to pipe! Data bytes: %d\n", ret);
+        }
         close( connfd );
     }
 
