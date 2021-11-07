@@ -39,6 +39,7 @@ int main( int argc, char* argv[] )
     }
 
     pollfd fds[2];
+    //注册标准输入和文件描述符sockfd上的可读事件
     fds[0].fd = 0;
     fds[0].events = POLLIN;
     fds[0].revents = 0;
@@ -52,6 +53,7 @@ int main( int argc, char* argv[] )
 
     while( 1 )
     {
+        //以阻塞的方式，轮询数量为2的fds，检测其中是否有就绪者
         ret = poll( fds, 2, -1 );
         if( ret < 0 )
         {
@@ -59,21 +61,28 @@ int main( int argc, char* argv[] )
             break;
         }
 
+        //TCP连接被对方关闭
         if( fds[1].revents & POLLRDHUP )
         {
             printf( "server close the connection\n" );
             break;
         }
+        //检测到可读事件，则读取数据到read_buf中
         else if( fds[1].revents & POLLIN )
         {
             memset( read_buf, '\0', BUFFER_SIZE );
             recv( fds[1].fd, read_buf, BUFFER_SIZE-1, 0 );
-            printf( "%s\n", read_buf );
+            printf( "%s", read_buf );
         }
 
         if( fds[0].revents & POLLIN )
         {
+            //将用户标准输入的数据 定向到管道
+            //0：STDIN_FINENO 标准输入
+            //1：STDOUT_FILENO 标准输出
+            //2：STDERR_FILENO 标准错误输出
             ret = splice( 0, NULL, pipefd[1], NULL, 32768, SPLICE_F_MORE | SPLICE_F_MOVE );
+            //将管道的输出定向到与服务器连接的文件描述符sockfd，实现零拷贝
             ret = splice( pipefd[0], NULL, sockfd, NULL, 32768, SPLICE_F_MORE | SPLICE_F_MOVE );
         }
     }

@@ -13,6 +13,7 @@ while( 1 )
         printf( "epoll failure\n" );
         break;
     }
+    //如果epoll_wati返回0，则说明超时时间到了，处理定时任务，重置定时事件
     if( number == 0 )
     {
         // timeout
@@ -21,7 +22,9 @@ while( 1 )
     }
 
     end = time( NULL );
+    //如果epoll_wait返回值大于0，则将timeout减去这段持续时间，以获得下次epoll_wait调用的超时参数
     timeout -= ( end - start ) * 1000;
+    //处理定时任务，重置定时时间 
     if( timeout <= 0 )
     {
         // timeout

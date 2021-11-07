@@ -13,7 +13,7 @@
 #include <string.h>
 
 #define BUFFER_SIZE 1023
-
+//将文件描述符设置成非阻塞的
 int setnonblocking( int fd )
 {
     int old_option = fcntl( fd, F_GETFL );
@@ -22,6 +22,7 @@ int setnonblocking( int fd )
     return old_option;
 }
 
+//超时连接函数，成功时返回已经处于连接状态的socket，失败则返回-1
 int unblock_connect( const char* ip, int port, int time )
 {
     int ret = 0;
@@ -37,11 +38,13 @@ int unblock_connect( const char* ip, int port, int time )
     if ( ret == 0 )
     {
         printf( "connect with server immediately\n" );
+        //如果连接成功，则将sockfd设置成非阻塞状态，并立即返回
         fcntl( sockfd, F_SETFL, fdopt );
         return sockfd;
     }
     else if ( errno != EINPROGRESS )
     {
+        //如果连接还未建立，那么只有当errno是EINPROGRESS时才表示连接还在进行
         printf( "unblock connect not support\n" );
         return -1;
     }
@@ -59,6 +62,7 @@ int unblock_connect( const char* ip, int port, int time )
     ret = select( sockfd + 1, NULL, &writefds, NULL, &timeout );
     if ( ret <= 0 )
     {
+        //select超时或者出错，则立即返回
         printf( "connection time out\n" );
         close( sockfd );
         return -1;
@@ -73,6 +77,7 @@ int unblock_connect( const char* ip, int port, int time )
 
     int error = 0;
     socklen_t length = sizeof( error );
+    //调用getsockopt来获取并清除sockfd上的错误
     if( getsockopt( sockfd, SOL_SOCKET, SO_ERROR, &error, &length ) < 0 )
     {
         printf( "get socket option failed\n" );
@@ -80,6 +85,7 @@ int unblock_connect( const char* ip, int port, int time )
         return -1;
     }
 
+    //错误号不为0则表示连接出错
     if( error != 0 )
     {
         printf( "connection failed after select with the error: %d \n", error );
@@ -87,6 +93,7 @@ int unblock_connect( const char* ip, int port, int time )
         return -1;
     }
     
+    //连接成功
     printf( "connection ready after select with the socket: %d \n", sockfd );
     fcntl( sockfd, F_SETFL, fdopt );
     return sockfd;

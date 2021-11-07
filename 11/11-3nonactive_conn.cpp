@@ -59,10 +59,13 @@ void addsig( int sig )
 
 void timer_handler()
 {
+    //定时处理任务，实际上就是调用tick函数
     timer_lst.tick();
+    //因为一次alarm调用会触发一次SIGALRM信号，所以需要重新定时，以不断触发SIGALRM信号
     alarm( TIMESLOT );
 }
 
+//定时器的回调函数，以删除非活动连接socket上的注册 事件，并关闭它
 void cb_func( client_data* user_data )
 {
     epoll_ctl( epollfd, EPOLL_CTL_DEL, user_data->sockfd, 0 );
@@ -107,7 +110,7 @@ int main( int argc, char* argv[] )
     setnonblocking( pipefd[1] );
     addfd( epollfd, pipefd[0] );
 
-    // add all the interesting signals here
+    //设置信号处理函数
     addsig( SIGALRM );
     addsig( SIGTERM );
     bool stop_server = false;
@@ -128,6 +131,7 @@ int main( int argc, char* argv[] )
         for ( int i = 0; i < number; i++ )
         {
             int sockfd = events[i].data.fd;
+            //处理新到的客户连接
             if( sockfd == listenfd )
             {
                 struct sockaddr_in client_address;
@@ -136,14 +140,19 @@ int main( int argc, char* argv[] )
                 addfd( epollfd, connfd );
                 users[connfd].address = client_address;
                 users[connfd].sockfd = connfd;
+
+                //创建定时器
                 util_timer* timer = new util_timer;
+                //绑定定时器与用户数据，设置回调函数与超时时间
                 timer->user_data = &users[connfd];
                 timer->cb_func = cb_func;
                 time_t cur = time( NULL );
                 timer->expire = cur + 3 * TIMESLOT;
                 users[connfd].timer = timer;
+                //将定时器添加到链表中
                 timer_lst.add_timer( timer );
             }
+            //处理信号
             else if( ( sockfd == pipefd[0] ) && ( events[i].events & EPOLLIN ) )
             {
                 int sig;
@@ -166,6 +175,7 @@ int main( int argc, char* argv[] )
                         {
                             case SIGALRM:
                             {
+                                //用timeout标记有定时任务需要处理
                                 timeout = true;
                                 break;
                             }
@@ -177,6 +187,7 @@ int main( int argc, char* argv[] )
                     }
                 }
             }
+            //处理客户连接上接受到的数据
             else if(  events[i].events & EPOLLIN )
             {
                 memset( users[sockfd].buf, '\0', BUFFER_SIZE );
@@ -185,6 +196,7 @@ int main( int argc, char* argv[] )
                 util_timer* timer = users[sockfd].timer;
                 if( ret < 0 )
                 {
+                    //如果发生读错误，则关闭连接，并删除定时器
                     if( errno != EAGAIN )
                     {
                         cb_func( &users[sockfd] );
@@ -196,6 +208,7 @@ int main( int argc, char* argv[] )
                 }
                 else if( ret == 0 )
                 {
+                    //如果对方已经关闭连接，则删除对应的定时器
                     cb_func( &users[sockfd] );
                     if( timer )
                     {
@@ -204,7 +217,7 @@ int main( int argc, char* argv[] )
                 }
                 else
                 {
-                    //send( sockfd, users[sockfd].buf, BUFFER_SIZE-1, 0 );
+                    //如果某个客户连接上有数据可读，需要调整该连接对应的定时器
                     if( timer )
                     {
                         time_t cur = time( NULL );

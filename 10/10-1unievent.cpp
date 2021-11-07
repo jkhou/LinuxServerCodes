@@ -16,6 +16,7 @@
 #define MAX_EVENT_NUMBER 1024
 static int pipefd[2];
 
+//将文件描述符设置成非阻塞的
 int setnonblocking( int fd )
 {
     int old_option = fcntl( fd, F_GETFL );
@@ -24,6 +25,7 @@ int setnonblocking( int fd )
     return old_option;
 }
 
+//将文件描述符fd上的EPOLLIN事件注册到epollfd所指示的epoll内核事件中
 void addfd( int epollfd, int fd )
 {
     epoll_event event;
@@ -33,14 +35,18 @@ void addfd( int epollfd, int fd )
     setnonblocking( fd );
 }
 
+//信号处理函数
 void sig_handler( int sig )
 {
+    //保留原来的errno，在函数最后恢复，以保证函数的可重入性
     int save_errno = errno;
     int msg = sig;
+    //将msg中的数据定向到管道的读端
     send( pipefd[1], ( char* )&msg, 1, 0 );
     errno = save_errno;
 }
 
+//设置信号的处理函数
 void addsig( int sig )
 {
     struct sigaction sa;
@@ -89,12 +95,14 @@ int main( int argc, char* argv[] )
     assert( epollfd != -1 );
     addfd( epollfd, listenfd );
 
+    //使用socketpair创建管道
     ret = socketpair( PF_UNIX, SOCK_STREAM, 0, pipefd );
     assert( ret != -1 );
     setnonblocking( pipefd[1] );
+    //注册pipefd[0]上的可读事件
     addfd( epollfd, pipefd[0] );
 
-    // add all the interesting signals here
+    //设置一些信号的处理函数
     addsig( SIGHUP );
     addsig( SIGCHLD );
     addsig( SIGTERM );
@@ -113,6 +121,7 @@ int main( int argc, char* argv[] )
         for ( int i = 0; i < number; i++ )
         {
             int sockfd = events[i].data.fd;
+            //如果就绪的文件描述符是listenfd，则处理新的连接
             if( sockfd == listenfd )
             {
                 struct sockaddr_in client_address;
@@ -120,10 +129,12 @@ int main( int argc, char* argv[] )
                 int connfd = accept( listenfd, ( struct sockaddr* )&client_address, &client_addrlength );
                 addfd( epollfd, connfd );
             }
+            //如果就绪的文件描述符是pipefd[0]，则处理信号
             else if( ( sockfd == pipefd[0] ) && ( events[i].events & EPOLLIN ) )
             {
                 int sig;
                 char signals[1024];
+                //从pipefd[0]中接收数据到signals，成功则返回接收到的字节数
                 ret = recv( pipefd[0], signals, sizeof( signals ), 0 );
                 if( ret == -1 )
                 {
@@ -135,19 +146,28 @@ int main( int argc, char* argv[] )
                 }
                 else
                 {
+                    //因为每个信号值占一个字节，所以按字节来逐个接收信号
                     for( int i = 0; i < ret; ++i )
                     {
-                        //printf( "I caugh the signal %d\n", signals[i] );
+                        printf( "I caugh the signal %d\n", signals[i] );
                         switch( signals[i] )
                         {
-                            case SIGCHLD:
+                            //子进程状态发生变化
+                            case SIGCHLD:                                
+                                printf("SIGCHLD.\n");
+                            //控制终端挂起
                             case SIGHUP:
                             {
+                                printf("SIGCHLD.\n");
                                 continue;
                             }
+                            //终止进程
                             case SIGTERM:
+                                printf("SIGCHLD.\n");
+                            //键盘输入以终端进程
                             case SIGINT:
                             {
+                                printf("SIGINT:keyboard input stop the process.\n");
                                 stop_server = true;
                             }
                         }

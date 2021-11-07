@@ -22,16 +22,17 @@ int main( int argc, char* argv[] )
 	printf( "ip is %s and port is %d\n", ip, port );
 
 	int ret = 0;
-        struct sockaddr_in address;
-        bzero( &address, sizeof( address ) );
-        address.sin_family = AF_INET;
-        inet_pton( AF_INET, ip, &address.sin_addr );
-        address.sin_port = htons( port );
+
+	struct sockaddr_in address;
+	bzero( &address, sizeof( address ) );
+	address.sin_family = AF_INET;
+	inet_pton( AF_INET, ip, &address.sin_addr );
+	address.sin_port = htons( port );
 
 	int listenfd = socket( PF_INET, SOCK_STREAM, 0 );
 	assert( listenfd >= 0 );
 
-        ret = bind( listenfd, ( struct sockaddr* )&address, sizeof( address ) );
+	ret = bind( listenfd, ( struct sockaddr* )&address, sizeof( address ) );
 	assert( ret != -1 );
 
 	ret = listen( listenfd, 5 );
@@ -50,46 +51,50 @@ int main( int argc, char* argv[] )
 	printf( "connected with ip: %s and port: %d\n", inet_ntop( AF_INET, &client_address.sin_addr, remote_addr, INET_ADDRSTRLEN ), ntohs( client_address.sin_port ) );
 
 	char buf[1024];
-        fd_set read_fds;
-        fd_set exception_fds;
+	fd_set read_fds;
+	fd_set exception_fds;
 
-        FD_ZERO( &read_fds );
-        FD_ZERO( &exception_fds );
+	FD_ZERO( &read_fds );
+	FD_ZERO( &exception_fds );
 
-        int nReuseAddr = 1;
+	int nReuseAddr = 1;
+	//设置接受socket属性为SO_OOBINLINE：接受到的带外数据将存留在普通数据的输入队列中
 	setsockopt( connfd, SOL_SOCKET, SO_OOBINLINE, &nReuseAddr, sizeof( nReuseAddr ) );
 	while( 1 )
 	{
 		memset( buf, '\0', sizeof( buf ) );
+		//每次调用select之前需要重新在read_fds和exception_fds中设置文件描述符connfd，因为事件发生后，文件描述符集合会被内核修改
 		FD_SET( connfd, &read_fds );
 		FD_SET( connfd, &exception_fds );
 
-        	ret = select( connfd + 1, &read_fds, NULL, &exception_fds, NULL );
+		ret = select( connfd + 1, &read_fds, NULL, &exception_fds, NULL );
 		printf( "select one\n" );
-        	if ( ret < 0 )
-        	{
-                	printf( "selection failure\n" );
-                	break;
-        	}
-	
-        	if ( FD_ISSET( connfd, &read_fds ) )
+		if ( ret < 0 )
 		{
-        		ret = recv( connfd, buf, sizeof( buf )-1, 0 );
+			printf( "selection failure\n" );
+			break;
+		}
+	
+		//对于可读事件，采用普通的recv函数来读取数据
+		if ( FD_ISSET( connfd, &read_fds ) )
+		{
+			ret = recv( connfd, buf, sizeof( buf )-1, 0 );
 			if( ret <= 0 )
 			{
 				break;
 			}
 			printf( "get %d bytes of normal data: %s\n", ret, buf );
 		}
+		//对于异常事件，采用带MSG_OOB标志的recv函数读取带外数据
 		else if( FD_ISSET( connfd, &exception_fds ) )
-        	{
-        		ret = recv( connfd, buf, sizeof( buf )-1, MSG_OOB );
+		{
+			ret = recv( connfd, buf, sizeof( buf )-1, MSG_OOB );
 			if( ret <= 0 )
 			{
 				break;
 			}
 			printf( "get %d bytes of oob data: %s\n", ret, buf );
-        	}
+		}
 
 	}
 

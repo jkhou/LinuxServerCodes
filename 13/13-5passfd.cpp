@@ -8,6 +8,7 @@
 
 static const int CONTROL_LEN = CMSG_LEN( sizeof(int) );
 
+//发送目标文件描述符
 void send_fd( int fd, int fd_to_send )
 {
     struct iovec iov[1];
@@ -32,6 +33,7 @@ void send_fd( int fd, int fd_to_send )
     sendmsg( fd, &msg, 0 );
 }
 
+//接收目标文件描述符
 int recv_fd( int fd )
 {
     struct iovec iov[1];
@@ -59,10 +61,11 @@ int main()
 {
     int pipefd[2];
     int fd_to_pass = 0;
-
+    //创建父子进程间的管道，文件描述符pipefd[0]和pipefd[1]都是UNIX域的socket
     int ret = socketpair( PF_UNIX, SOCK_DGRAM, 0, pipefd );
     assert( ret != -1 );
 
+    //创建一个子进程
     pid_t pid = fork();
     assert( pid >= 0 );
 
@@ -70,15 +73,19 @@ int main()
     {
         close( pipefd[0] );
         fd_to_pass = open( "test.txt", O_RDWR, 0666 );
+        //子进程通过管道将文件描述符发送到父进程
+        //如果文件test.txt打开失败，则子进程将标准输入文件描述符发送到父进程
         send_fd( pipefd[1], ( fd_to_pass > 0 ) ? fd_to_pass : 0 );
         close( fd_to_pass );
         exit( 0 );
     }
 
     close( pipefd[1] );
+    //父进程从管道中接收目标文件描述符
     fd_to_pass = recv_fd( pipefd[0] );
     char buf[1024];
     memset( buf, '\0', 1024 );
+    //读取目标文件描述符
     read( fd_to_pass, buf, 1024 );
     printf( "I got fd %d and data %s\n", fd_to_pass, buf );
     close( fd_to_pass );

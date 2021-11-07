@@ -14,6 +14,7 @@
 
 static int connfd;
 
+//SIGURG信号的处理函数
 void sig_urg( int sig )
 {
     int save_errno = errno;
@@ -26,6 +27,7 @@ void sig_urg( int sig )
     errno = save_errno;
 }
 
+//设置信号的处理函数
 void addsig( int sig, void ( *sig_handler )( int ) )
 {
     struct sigaction sa;
@@ -70,21 +72,24 @@ int main( int argc, char* argv[] )
     }
     else
     {
-        addsig( SIGURG, sig_urg );
-        fcntl( connfd, F_SETOWN, getpid() );
+            //设置信号处理函数,接收到了紧急数据则进入sigurg信号处理函数
+            addsig( SIGURG, sig_urg );
+            //使用SIGURG信号之前，必须设置socket的宿主进程或进程组
+            fcntl( connfd, F_SETOWN, getpid() );
 
-        char buffer[ BUF_SIZE ];
-        while( 1 )
-        {
-            memset( buffer, '\0', BUF_SIZE );
-            ret = recv( connfd, buffer, BUF_SIZE-1, 0 );
-            if( ret <= 0 )
+            char buffer[ BUF_SIZE ];
+            
+            //循环接收普通数据
+            while( 1 )
             {
-                break;
+                memset( buffer, '\0', BUF_SIZE );
+                ret = recv( connfd, buffer, BUF_SIZE-1, 0 );
+                if( ret <= 0 )
+                {
+                    break;
+                }
+                printf( "got %d bytes of normal data:  '%s'\n", ret, buffer );
             }
-            printf( "got %d bytes of normal data '%s'\n", ret, buffer );
-        }
-
         close( connfd );
     }
 
